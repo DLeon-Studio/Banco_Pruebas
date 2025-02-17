@@ -1,0 +1,83 @@
+//Arduino Maestro
+#include <Encoder.h>
+
+// Pines para los encoders
+#define ENCODER1_PIN_A 12
+#define ENCODER1_PIN_B 11
+#define ENCODER2_PIN_A 6
+#define ENCODER2_PIN_B 7
+
+// Pin para detener la le ctura de los encoders
+#define LECTURA_PIN 10
+
+
+const int ppr = 8000; //pasos por vuelta de cada encoder
+long position1 = 0;
+long position2 = 0;
+
+
+// Instanciación de los encoders
+Encoder encoder1(ENCODER1_PIN_A, ENCODER1_PIN_B);
+Encoder encoder2(ENCODER2_PIN_A, ENCODER2_PIN_B);
+
+
+void setup() {
+    SerialUSB.begin(1000000);  // Comunicación con la PC
+    delay(500);
+    
+    Serial1.begin(9600);   // Comunicación con el Nano
+
+    pinMode(LECTURA_PIN, INPUT_PULLUP);
+    
+    // Inicializar las posiciones de los encoders
+    encoder1.write(0);
+    encoder2.write(0);
+
+    //SerialUSB.println("Dispositivo Conectado");
+}
+
+void loop() {
+    
+    if (SerialUSB.available()) {      
+
+        String data = SerialUSB.readStringUntil('\n');  // Leer hasta nueva línea
+        data.trim();  // Eliminar espacios o saltos de línea
+        Serial1.print(data); //Enviar datos al Arduino Nano
+        
+        int vueltas = 0, velocidad = 0, modo = 6;
+
+        int index1 = data.indexOf(',');
+        int index2 = data.indexOf(',', index1 + 1);
+        int index3 = data.indexOf(',', index2 + 1);
+
+        vueltas = data.substring(0, index1).toInt();
+        velocidad = data.substring(index1 + 1, index2).toInt();
+        String distanciaStr = data.substring(index2 + 1, index3);
+        float distancia = distanciaStr.toFloat();
+        
+        modo = data.substring(index3 + 1).toInt();
+        
+        if (modo == 0){
+          while (digitalRead(LECTURA_PIN) == HIGH) {
+            // No hacer nada, simplemente esperar
+          }
+          leerEncoders();          
+        }
+      }   
+}
+
+void leerEncoders(){
+  while(digitalRead(LECTURA_PIN) == LOW){
+    // Obtener las posiciones y tiempo actual de los encoders
+    unsigned long currentTime = micros();
+
+    position1 = encoder1.read();
+    position2 = encoder2.read();
+    
+    // Enviar datos en formato binario
+    SerialUSB.write((uint8_t*)&position1, sizeof(position1));
+    SerialUSB.write((uint8_t*)&position2, sizeof(position2));
+    SerialUSB.write((uint8_t*)&currentTime, sizeof(currentTime));
+  }
+  
+}
